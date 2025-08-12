@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Palabra Oculta</title>
+    <!-- Enlace al manifiesto de la aplicación para que sea una PWA -->
+    <link rel="manifest" href="manifest.json">
+    <!-- Enlace a los iconos para la pantalla de inicio -->
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <link rel="shortcut icon" href="favicon.ico">
+    <style>
+        /* Estilos CSS personalizados para la aplicación */
+        :root {
+            --color-primary: #3f51b5;
+            --color-secondary: #ffc107;
+            --color-background: #f0f2f5;
+            --color-text: #2c3e50;
+            --color-accent: #e91e63;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--color-background);
+            color: var(--color-text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        h1 {
+            color: var(--color-primary);
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+
+        p {
+            font-size: 1.1em;
+            color: #555;
+            margin-top: 0;
+        }
+
+        .word-display {
+            font-size: 3em;
+            letter-spacing: 10px;
+            margin: 30px 0;
+            font-weight: bold;
+            color: var(--color-primary);
+            min-height: 1.5em; /* Previene el salto de diseño */
+            user-select: none;
+        }
+
+        .message-box {
+            font-size: 1.2em;
+            height: 30px;
+            margin-bottom: 20px;
+            color: var(--color-accent);
+            font-weight: 600;
+        }
+        
+        .input-group {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            width: 60px;
+            height: 60px;
+            font-size: 2em;
+            text-align: center;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus {
+            outline: none;
+            border-color: var(--color-primary);
+        }
+
+        button {
+            background-color: var(--color-primary);
+            color: white;
+            font-size: 1.1em;
+            font-weight: bold;
+            padding: 15px 30px;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: background-color 0.3s, transform 0.2s;
+            box-shadow: 0 5px 15px rgba(63, 81, 181, 0.3);
+        }
+
+        button:hover {
+            background-color: #303f9f;
+            transform: translateY(-2px);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+        
+        #restart-btn {
+            background-color: var(--color-secondary);
+            color: var(--color-text);
+            box-shadow: 0 5px 15px rgba(255, 193, 7, 0.3);
+        }
+        
+        #restart-btn:hover {
+            background-color: #ffb300;
+        }
+
+        #clue-btn {
+            background-color: #4CAF50;
+            color: white;
+            box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+        }
+        #clue-btn:hover {
+            background-color: #45a049;
+        }
+
+        /* Estilos para el indicador de vidas */
+        .lives {
+            display: flex;
+            justify-content: center;
+            margin-top: 20px;
+            font-size: 1.5em;
+        }
+
+        .life {
+            color: var(--color-accent);
+            margin: 0 5px;
+            transition: transform 0.3s ease-in-out;
+        }
+
+        .lost-life {
+            color: #dcdcdc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Palabra Oculta</h1>
+        <p>Adivina la palabra. Tienes 6 vidas.</p>
+
+        <div class="word-display" id="word-display"></div>
+        <div class="message-box" id="message-box"></div>
+
+        <div class="input-group">
+            <input type="text" id="guess-input" maxlength="1" placeholder="A" autofocus>
+            <button id="guess-btn">Adivinar</button>
+            <button id="clue-btn">Obtener Pista</button>
+        </div>
+        
+        <div class="lives" id="lives-container"></div>
+
+        <button id="restart-btn" style="display: none;">Jugar de Nuevo</button>
+    </div>
+
+    <script>
+        // Arreglo de palabras para adivinar
+        const words = ['programacion', 'desarrollo', 'javascript', 'html', 'codigo', 'aplicacion', 'movil', 'internet'];
+        let chosenWord;
+        let guessedLetters = new Set();
+        let incorrectGuesses = 0;
+        const maxIncorrectGuesses = 6;
+        let clueUsed = false;
+        
+        const wordDisplay = document.getElementById('word-display');
+        const guessInput = document.getElementById('guess-input');
+        const guessBtn = document.getElementById('guess-btn');
+        const messageBox = document.getElementById('message-box');
+        const restartBtn = document.getElementById('restart-btn');
+        const livesContainer = document.getElementById('lives-container');
+        const clueBtn = document.getElementById('clue-btn');
+
+        // Función para inicializar el juego
+        function initGame() {
+            // Reinicia el estado del juego
+            chosenWord = words[Math.floor(Math.random() * words.length)];
+            guessedLetters.clear();
+            incorrectGuesses = 0;
+            clueUsed = false;
+            messageBox.textContent = '';
+            guessInput.value = '';
+            guessInput.disabled = false;
+            guessBtn.disabled = false;
+            clueBtn.disabled = false;
+            restartBtn.style.display = 'none';
+
+            // Dibuja el estado inicial de la palabra y las vidas
+            updateWordDisplay();
+            updateLivesDisplay();
+            guessInput.focus();
+        }
+
+        // Dibuja la palabra oculta con las letras adivinadas
+        function updateWordDisplay() {
+            const displayWord = chosenWord.split('').map(letter => {
+                return guessedLetters.has(letter) ? letter.toUpperCase() : '_';
+            }).join(' ');
+            wordDisplay.textContent = displayWord;
+        }
+
+        // Actualiza el indicador de vidas
+        function updateLivesDisplay() {
+            livesContainer.innerHTML = '';
+            for (let i = 0; i < maxIncorrectGuesses; i++) {
+                const lifeSpan = document.createElement('span');
+                lifeSpan.textContent = '❤️';
+                lifeSpan.classList.add('life');
+                if (i < incorrectGuesses) {
+                    lifeSpan.classList.add('lost-life');
+                }
+                livesContainer.appendChild(lifeSpan);
+            }
+        }
+
+        // Manejador del evento de adivinar
+        function handleGuess() {
+            const guess = guessInput.value.toLowerCase();
+            guessInput.value = '';
+
+            // Validación de la entrada
+            if (!guess || !/^[a-z]$/.test(guess)) {
+                messageBox.textContent = 'Por favor, introduce una letra válida.';
+                return;
+            }
+
+            if (guessedLetters.has(guess)) {
+                messageBox.textContent = 'Ya has adivinado esa letra.';
+                return;
+            }
+
+            guessedLetters.add(guess);
+
+            if (chosenWord.includes(guess)) {
+                messageBox.textContent = '¡Correcto!';
+                updateWordDisplay();
+            } else {
+                messageBox.textContent = 'Incorrecto.';
+                incorrectGuesses++;
+                updateLivesDisplay();
+            }
+
+            // Revisa si el juego ha terminado
+            checkGameStatus();
+        }
+
+        // Manejador del evento de obtener pista
+        function handleClue() {
+            // Revisa si ya se usó la pista
+            if (clueUsed) {
+                messageBox.textContent = 'Ya has usado tu pista en esta partida.';
+                return;
+            }
+            
+            // Encuentra una letra no adivinada
+            const unguessedLetters = chosenWord.split('').filter(letter => !guessedLetters.has(letter));
+            
+            if (unguessedLetters.length > 0) {
+                // Elige una letra aleatoria de las no adivinadas
+                const clueLetter = unguessedLetters[Math.floor(Math.random() * unguessedLetters.length)];
+                guessedLetters.add(clueLetter);
+                messageBox.textContent = `Pista: Se ha revelado la letra '${clueLetter.toUpperCase()}'`;
+                updateWordDisplay();
+                
+                clueUsed = true;
+                clueBtn.disabled = true;
+            } else {
+                messageBox.textContent = 'No hay más letras por revelar.';
+                clueUsed = true; // Para deshabilitar el botón
+                clueBtn.disabled = true;
+            }
+            
+            checkGameStatus();
+            guessInput.focus();
+        }
+
+
+        // Revisa si el jugador ha ganado o perdido
+        function checkGameStatus() {
+            const currentWord = chosenWord.split('').every(letter => guessedLetters.has(letter));
+            if (currentWord) {
+                messageBox.textContent = '¡Felicidades, has ganado!';
+                endGame(true);
+            } else if (incorrectGuesses >= maxIncorrectGuesses) {
+                messageBox.textContent = `¡Oh no, has perdido! La palabra era: ${chosenWord.toUpperCase()}`;
+                endGame(false);
+            }
+            guessInput.focus();
+        }
+
+        // Finaliza el juego
+        function endGame(hasWon) {
+            guessInput.disabled = true;
+            guessBtn.disabled = true;
+            clueBtn.disabled = true;
+            restartBtn.style.display = 'block';
+        }
+
+        // Event Listeners
+        guessBtn.addEventListener('click', handleGuess);
+        guessInput.addEventListener('keyup', (e) => {
+            if (e.key === 'Enter') {
+                handleGuess();
+            }
+        });
+        restartBtn.addEventListener('click', initGame);
+        clueBtn.addEventListener('click', handleClue);
+
+        // Registro del Service Worker
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('service-worker.js').then(registration => {
+                    console.log('Service Worker registrado con éxito:', registration);
+                }).catch(err => {
+                    console.log('Fallo en el registro del Service Worker:', err);
+                });
+            });
+        }
+
+        // Inicializa el juego al cargar la página
+        window.onload = initGame;
+    </script>
+</body>
+</html>
